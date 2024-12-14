@@ -1,0 +1,19 @@
+Business Problem & Project Objective:
+People with insufficient or no credit history often struggle to obtain loans or are taken advantage of by untrustworthy lenders. Home Credit is using alternative data to provide a safe, positive loan experience and improve financial inclusion for this underserved population.
+
+
+Group solution to the business problem:
+
+
+My contribution to the project:
+I contributed to the project in two main ways, I performed the linear regression model and the associated cross validations and model validations, and I formatted and put together the powerpoint presentation.
+
+
+Business value of the solution:
+
+
+
+
+
+
+One of the biggest challenge was the target variable imbalance. There were far more loans in the dataset that were not in default than were in default, so this had to be accounted for during modeling to not over-classify potential loans as not default.
