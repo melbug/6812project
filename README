@@ -3,17 +3,27 @@ People with insufficient or no credit history often struggle to obtain loans or 
 
 
 Group solution to the business problem:
-
+The top 5 most important variables in using alternative data we found to be: 
+- Ext Source 3
+- Ext Source 2
+- Ext Source 1
+- Days Employed
+- Amt Annuity
+These are the top 5 variables, and we found that a LightGBM model most accurately predicts which individuals are least likely to default on a loan. We found that alternative data can provide a safe positive loan experience and still protect the lender from the applicant defaulting on their loan.
 
 My contribution to the project:
-I contributed to the project in two main ways, I performed the linear regression model and the associated cross validations and model validations, and I formatted and put together the powerpoint presentation.
+I contributed to the project in two main ways- I performed the linear regression model along with the associated cross validations and model validations, and I formatted and put together the powerpoint presentation.
 
 
 Business value of the solution:
+Ultimately, this approach not only increases loan access for underserved individuals but also ensures greater financial sustainability for Home Credit by improving profitability, reducing defaults, and fostering long-term customer loyalty.
 
 
+Difficulties encountered along the way:
+One of the biggest challenge was the target variable imbalance. There were far more loans in the dataset that were not in default than were in default, so this had to be accounted for during modeling to not over-classify potential loans as not default. Another difficulty was ensuring each model ran with the same data from the EDA, so that the models could be compared using the same data.
 
 
-
-
-One of the biggest challenge was the target variable imbalance. There were far more loans in the dataset that were not in default than were in default, so this had to be accounted for during modeling to not over-classify potential loans as not default.
+Lessons learned from this project:
+Using alternative data improved loan access for underserved populations, highlighting the social value of the project.
+While LightGBM was effective, ensuring model decisions were interpretable was crucial for ethical decision-making in financial services. The Linear Regression model was close behind the LightGBM and would be a valuable alternative for it's interpretability.
+This project highlighted the importance of data consistency, careful model evaluation, and the societal impact of improving financial access through data-driven solutions.
