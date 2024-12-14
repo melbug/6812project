@@ -1,0 +1,280 @@
+---
+title: "EDA"
+author: "Melissa Messervy"
+date: "2024-09-25"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-title: "Contents"
+execute:
+  warning: false
+  message: false
+---
+
+# Home Credit Analysis
+
+Many people struggle to get loans due to insufficient or non-existent credit histories and are often taken advantage of by untrustworthy lenders. This issue limits financial inclusion, preventing capable individuals from accessing credit and limiting their loan options. Home Credit’s goal is to broaden financial inclusion for this population by creating a safe borrowing experience using alternative data. 
+This analytics project will use a supervised approach, specifically a regression model to predict a continuous outcome based on alternative data sources such as telco and transactional information as the predictors. Some predictors have been transformed to factor variables, and some have been averaged to fill in missing values to retain the information in the dataset. Other variables have been dropped from the dataset if they contain potential duplicate information or information that is not useful to the problem statement. Additional variables will also be dropped as a result of a simple random forest analysis that determines the importance of each variable in predicting the target variable. The target variable is the clients' repayment ability, which can be quantified as a continuous measure, such as the probability of timely repayment, the expected amount of repayment, or a similar metric reflecting their financial reliability.
+
+
+## Questions to guide the data exploration
+What are the most influential variables?
+What variables contain missing data?
+What is the best way to impute missing data?
+What is the best way to combine datasets to retain the majority of information?
+What variables should be dropped and why?
+What variables are missing the majority of their data and would it be useful to retain these columns?
+What variables are the most influential in a simple random forest?
+
+
+## Load necessary libraries
+```{r}
+library(ggplot2)
+library(dplyr)
+library(scales)
+library(skimr)
+library(ranger)
+library(summarytools)
+```
+
+
+## Read in the data
+```{r}
+# Read in the training data
+train = read.csv("application_train.csv")
+
+# Read in the test data
+test = read.csv("application_train.csv")
+```
+
+
+## Explore the target variable
+```{r}
+# Explore the train and test dataset
+summary(train)
+summary(test)
+
+str(train)
+str(test)
+
+# Check data unbalance
+temp = count(train, TARGET)
+
+data_df <- as.data.frame(table(train$TARGET))
+colnames(data_df) <- c("Value", "Count")
+
+# Plot the data imbalance
+ggplot(data_df, aes(x = as.factor(Value), y = Count)) +
+  scale_y_continuous(labels = label_number()) +
+  geom_bar(stat = "identity") +
+  labs(x = "Value", y = "Count", title = "Count of Application Loan Repayments - Train Dataset")
+
+# Create tables to see the imbalance in the train and test dataset
+prop.table(table(train$TARGET))
+
+prop.table(table(test$TARGET))
+```
+This shows that the data is very unbalanced. There is a much higher proportion of repaid loans than there are loans not repaid. (0 indicates the loan wass repaid and 1 indicates the loan was not repaid.) Based on the training data, the accuracy for a simple model consisting of a majority class classifier would be 92%.
+Because this is very imbalanced data, it will be challenging when in the modeling phase. This is becaused the data is being driven largely based on the high percentage of customers who did not default.
+
+
+## Use the skimr package to explore the data, and the summarytools package
+```{r}
+# Use skim function in skimr to explore the train and test dataset
+skim(test)
+
+skim(train)
+
+# Continue exploring the data using the summarytools package
+dfSummary(test)
+dfSummary(train)
+```
+
+
+## Explore the scope of missing data
+```{r}
+# Check the number of missing values in each column
+colSums(is.na(train))
+
+# Specify columns to remove
+cols_to_remove = c("WEEKDAY_APPR_PROCESS_START", "HOUR_APPR_PROCESS_START", "COMMONAREA_AVG", "ELEVATORS_AVG", "APARTMENTS_MODE", "YEARS_BUILD_MODE", "COMMONAREA_MODE", "ELEVATORS_MODE", "ENTRANCES_MODE", "FLOORSMAX_MODE", "FLOORSMIN_MODE", "LANDAREA_MODE", "LIVINGAPARTMENTS_MODE", "LIVINGAREA_MODE", "NONLIVINGAPARTMENTS_MODE", "NONLIVINGAREA_MODE", "APARTMENTS_MEDI", "BASEMENTAREA_MEDI", "YEARS_BEGINEXPLUATATION_MEDI", "YEARS_BUILD_MEDI", "COMMONAREA_MEDI", "ELEVATORS_MEDI", "ENTRANCES_MEDI", "FLOORSMAX_MEDI", "FLOORSMIN_MEDI", "LANDAREA_MEDI", "LANDAREA_MEDI", "LIVINGAPARTMENTS_MEDI", "LIVINGAREA_MEDI", "NONLIVINGAPARTMENTS_MEDI", "NONLIVINGAREA_MEDI",  "NONLIVINGAREA_MODE", "APARTMENTS_MEDI", "FONDKAPREMONT_MODE", "HOUSETYPE_MODE", "TOTALAREA_MODE", "WALLSMATERIAL_MODE", "EMERGENCYSTATE_MODE", "OBS_30_CNT_SOCIAL_CIRCLE", "OBS_60_CNT_SOCIAL_CIRCLE", "DEF_30_CNT_SOCIAL_CIRCLE", "DEF_60_CNT_SOCIAL_CIRCLE", "YEARS_BEGINEXPLUATATION_MODE", "YEARS_BEGINEXPLUATATION_AVG", "BASEMENTAREA_MODE", "APARTMENTS_AVG", "BASEMENTAREA_AVG", "ENTRANCES_AVG", "FLOORSMAX_AVG", "FLOORSMIN_AVG", "LIVINGAPARTMENTS_AVG", "LIVINGAREA_AVG", "NONLIVINGAPARTMENTS_AVG", "NONLIVINGAREA_AVG", "OWN_CAR_AGE")
+
+# Remove specified columns from original dataset and create a new dataset with the specified columns removed
+train2 = train |> select(-all_of(cols_to_remove))
+```
+
+
+## Convert necessary columns to factor variables
+```{r}
+# Specify columns to convert
+cols_to_convert <- c("TARGET", "NAME_CONTRACT_TYPE", "CODE_GENDER", "FLAG_OWN_CAR", "FLAG_OWN_REALTY", "NAME_TYPE_SUITE", "NAME_INCOME_TYPE", "NAME_EDUCATION_TYPE", "NAME_FAMILY_STATUS", "NAME_HOUSING_TYPE", "FLAG_MOBIL", "FLAG_EMP_PHONE", "FLAG_WORK_PHONE", "FLAG_CONT_MOBILE", "FLAG_PHONE", "FLAG_EMAIL", "OCCUPATION_TYPE", "REGION_RATING_CLIENT", "REGION_RATING_CLIENT_W_CITY", "REG_REGION_NOT_LIVE_REGION", "REG_REGION_NOT_WORK_REGION", "LIVE_REGION_NOT_WORK_REGION", "REG_CITY_NOT_LIVE_CITY", "REG_CITY_NOT_WORK_CITY", "LIVE_CITY_NOT_WORK_CITY", "ORGANIZATION_TYPE", "FLAG_DOCUMENT_2", "FLAG_DOCUMENT_3", "FLAG_DOCUMENT_4", "FLAG_DOCUMENT_5", "FLAG_DOCUMENT_6", "FLAG_DOCUMENT_7", "FLAG_DOCUMENT_8", "FLAG_DOCUMENT_9", "FLAG_DOCUMENT_10", "FLAG_DOCUMENT_11", "FLAG_DOCUMENT_12", "FLAG_DOCUMENT_13", "FLAG_DOCUMENT_14", "FLAG_DOCUMENT_15", "FLAG_DOCUMENT_16", "FLAG_DOCUMENT_17", "FLAG_DOCUMENT_18", "FLAG_DOCUMENT_19", "FLAG_DOCUMENT_20", "FLAG_DOCUMENT_21")
+
+# Convert specified columns to factors
+train2[cols_to_convert] <- lapply(train2[cols_to_convert], as.factor)
+```
+
+
+## Impute missing values in remaining columns with missing variables
+```{r}
+# Specify columns to update missing values
+impute_vals = c("AMT_ANNUITY", "AMT_GOODS_PRICE", "REGION_POPULATION_RELATIVE", "DAYS_BIRTH", "DAYS_EMPLOYED", "DAYS_REGISTRATION", "DAYS_ID_PUBLISH", "CNT_FAM_MEMBERS", "EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3", "YEARS_BUILD_AVG", "DAYS_LAST_PHONE_CHANGE", "LANDAREA_AVG")
+
+# Impute missing values in specified columns
+train3 = train2 |>
+  mutate(across(impute_vals, ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+# Specify factor columns to impute missing data in
+cols_to_mod = c("AMT_REQ_CREDIT_BUREAU_HOUR", "AMT_REQ_CREDIT_BUREAU_DAY", "AMT_REQ_CREDIT_BUREAU_WEEK", "AMT_REQ_CREDIT_BUREAU_MON", "AMT_REQ_CREDIT_BUREAU_QRT", "AMT_REQ_CREDIT_BUREAU_YEAR")
+
+# Impute missing values in specified factor columns
+for (col in cols_to_mod) {
+    train3[[col]][is.na(train3[[col]])] <- "none" 
+    train3[[col]] <- as.factor(train3[[col]])
+}
+```
+
+
+## Explore the relationship between target and predictors
+```{r}
+# Create a simple random forest to check variable importance
+rf_model <- ranger(TARGET ~ ., data = train3, importance = "impurity")
+sort(rf_model$variable.importance, decreasing = TRUE)
+```
+```{r}
+# Remove columns with an importance of <1
+cols_to_remove2 = c("FLAG_MOBIL", "FLAG_DOCUMENT_12", "FLAG_DOCUMENT_10", "FLAG_DOCUMENT_4", "FLAG_DOCUMENT_17")
+
+train4 = train3 |> select(-all_of(cols_to_remove2))
+```
+
+
+## Reorder columns for better readability
+```{r}
+# Reorder columns in dataset
+new_order = c("SK_ID_CURR",                  
+"TARGET",                     
+"NAME_CONTRACT_TYPE",         
+"FLAG_OWN_REALTY",
+"FLAG_OWN_CAR",               
+"AMT_INCOME_TOTAL",           
+"AMT_CREDIT", 
+"AMT_ANNUITY",                
+"AMT_GOODS_PRICE",             
+"NAME_TYPE_SUITE",            
+"NAME_INCOME_TYPE",           
+"NAME_EDUCATION_TYPE",         
+"NAME_FAMILY_STATUS",          
+"NAME_HOUSING_TYPE",          
+"REGION_POPULATION_RELATIVE", 
+"DAYS_EMPLOYED",
+"OCCUPATION_TYPE",
+"ORGANIZATION_TYPE",            
+"CNT_FAM_MEMBERS",
+"CNT_CHILDREN",                             
+"DAYS_BIRTH",
+"CODE_GENDER",                                  
+"DAYS_REGISTRATION",          
+"DAYS_ID_PUBLISH",                               
+"FLAG_DOCUMENT_2",             
+"FLAG_DOCUMENT_3",             
+"FLAG_DOCUMENT_5",            
+"FLAG_DOCUMENT_6",             
+"FLAG_DOCUMENT_7",            
+"FLAG_DOCUMENT_8",             
+"FLAG_DOCUMENT_9",            
+"FLAG_DOCUMENT_11",            
+"FLAG_DOCUMENT_13",           
+"FLAG_DOCUMENT_14",            
+"FLAG_DOCUMENT_15",            
+"FLAG_DOCUMENT_16",            
+"FLAG_DOCUMENT_18",            
+"FLAG_DOCUMENT_19",            
+"FLAG_DOCUMENT_20",            
+"FLAG_DOCUMENT_21",           
+"EXT_SOURCE_1",                
+"EXT_SOURCE_2",               
+"EXT_SOURCE_3",                        
+"FLAG_EMP_PHONE",              
+"FLAG_WORK_PHONE",            
+"FLAG_CONT_MOBILE",           
+"FLAG_PHONE",
+"DAYS_LAST_PHONE_CHANGE",                 
+"FLAG_EMAIL",                  
+"REGION_RATING_CLIENT",       
+"REGION_RATING_CLIENT_W_CITY", 
+"REG_REGION_NOT_LIVE_REGION", 
+"REG_REGION_NOT_WORK_REGION",  
+"LIVE_REGION_NOT_WORK_REGION",
+"REG_CITY_NOT_LIVE_CITY",  
+"REG_CITY_NOT_WORK_CITY",
+"LIVE_CITY_NOT_WORK_CITY",               
+"YEARS_BUILD_AVG",             
+"LANDAREA_AVG",                
+"AMT_REQ_CREDIT_BUREAU_HOUR",  
+"AMT_REQ_CREDIT_BUREAU_DAY",   
+"AMT_REQ_CREDIT_BUREAU_WEEK",  
+"AMT_REQ_CREDIT_BUREAU_MON",  
+"AMT_REQ_CREDIT_BUREAU_QRT",   
+"AMT_REQ_CREDIT_BUREAU_YEAR"
+)
+
+traindf <- train4[new_order]
+
+summary(traindf)
+```
+
+
+## Join the application train and test datasets with transactional data in bureau.csv
+```{r}
+bureau = read.csv("bureau.csv")
+summary(bureau)
+
+# Combine the cleaned train dataset with the bureau dataset
+combined_train = left_join(traindf, bureau, by = "SK_ID_CURR")
+
+summary(combined_train)
+```
+
+
+```{r}
+# Clean test dataset to match train
+test2 = test |> select(-all_of(cols_to_remove))
+test3 = test2 |> select(-all_of(cols_to_remove2))
+
+# Confirm train and test columns match
+missing_columns <- setdiff(colnames(test), colnames(train))
+if (length(missing_columns) > 0) {
+  cat("The following columns are missing in test:\n")
+  print(missing_columns)
+} else {
+  cat("All columns in train are present in test.\n")
+}
+
+# Reorder the cleaned test dataset to match train
+testdf <- test3[new_order]
+
+# Combine the cleaned test dataset with the bureau dataset
+combined_test = left_join(testdf, bureau, by = "SK_ID_CURR")
+
+summary(combined_test)
+```
+
+
+## Explore the joined transactional data
+```{r}
+summary(combined_train)
+
+colSums(is.na(combined_train))
+```
+Based on this information, some of the added columns do appear to show promise in predicting default. There is some missing data, however it is a very low percentage of the overall dataset, indicating it may show promise in predicting the target variable of default.
+
+## Results
+Throughout this EDA, we have learned that there is a large unbalance in the data, with the data being heavily skewed by the number of people not in default of their loans. There is also a large number of missing data in certain columns, some of which have been dropped and others have been imputed to retain this information. 
+There are some relationships that appear particularly strong. Based on the random forest model, the variables with the strongest relationship to the target are EXT_SOURCE_2, EXT_SOURCE_3, and DAYS_BIRTH.
+This EDA has changed the approach. There is more missing data than anticipated, as well as variables with lower strength than anticipated. This will all need to be taken into account during the model, including the imputed data changes. Further transformation may also be needed on input data in order to be used in the model.
+
+
+
+
